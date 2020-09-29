@@ -1,0 +1,104 @@
+import I2C_LCD_driver
+from time import *
+import RPi.GPIO as GPIO
+import time
+import requests
+import datetime
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
+TRI = 23
+ECH = 24
+REL = 22
+ECHO = 27
+RELL = 18
+RELY = 25
+PUMP = 21
+
+GPIO.setup(TRI, GPIO.OUT)
+GPIO.setup(ECH, GPIO.IN)
+GPIO.setup(ECHO, GPIO.IN)
+GPIO.setup(REL, GPIO.OUT)
+GPIO.setup(RELL, GPIO.OUT)
+GPIO.setup(RELY, GPIO.OUT)
+GPIO.setup(PUMP, GPIO.OUT)
+
+def m() :
+        GPIO.output(TRI, False)
+        time.sleep(.5)
+        GPIO.output(TRI, True)
+        time.sleep(0.00001)
+        GPIO.output(TRI, False)
+        
+        pulse_s = 0
+        pulse_e = 0
+
+        while GPIO.input(ECH)==0:
+                pulse_s = time.time()
+        while GPIO.input(ECH)==1:
+                pulse_e = time.time()
+        
+        now = datetime.datetime.now()
+        pulse_d = pulse_e - pulse_s
+        TNK1 = (pulse_d * 17150)
+        tank1 = 40 - TNK1
+        tank1 = round(tank1, 2)
+        print("level tank1:",tank1,"cm",now.strftime("%H:%M:%S"))
+        time.sleep(1)
+        return tank1
+        
+
+def m2() :
+    
+        GPIO.output(TRI, False)
+        time.sleep(.5)
+        GPIO.output(TRI, True)
+        time.sleep(0.00001)
+        GPIO.output(TRI, False)
+        
+        
+        s = 0
+        e = 0
+        
+        while GPIO.input(ECHO)==0:
+                s = time.time()
+                
+        while GPIO.input(ECHO)==1:
+                e = time.time()
+        
+        now = datetime.datetime.now()
+        d = e - s
+        TNK2 = (d * 17150)
+        tank2 = 47.5 -TNK2
+        tank2 = round(tank2, 2)
+        print("level tank2 :",tank2,"cm",now.strftime("%H:%M:%S"))
+        time.sleep(1)
+        return tank2
+        
+def kondisi():
+    if m() > 9 :
+        GPIO.output(22,GPIO.HIGH)
+    if m() < 0.5 :
+        GPIO.output(REL,GPIO.LOW)
+    if (m2() > 8) :
+        GPIO.output(18, 1)
+    if (m2() > 8) :
+        GPIO.output(25, 1)
+    if (m2() > 8) :
+        GPIO.output(21, 1)
+    if (m2() < 0.5) :
+        GPIO.output(18, 0)
+    if (m2() < 0.5) :
+        GPIO.output(25, 0)
+    if (m2() > 0.5) :
+        GPIO.output(21, 0)
+lcd = I2C_LCD_driver.lcd()
+
+while True:
+    kondisi()
+    lcd.lcd_display_string("level tank", 1)
+    lcd.lcd_display_string("level tank2:%5.1fcm" % m2(), 3)
+    lcd.lcd_display_string("level tank1:%5.1fcm" % m(), 2)
+    response = requests.post("http://192.168.0.122/milktech/ind.php", data= {"tank1" : m(), "tank2" : m2()})
+
